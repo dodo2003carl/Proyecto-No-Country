@@ -36,7 +36,7 @@ schedule>=1.2.1
 openpyxl>=3.1.2
 xlsxwriter>=1.4.0
 
-+# CI/CD Tools
-+flake8>=6.0.0 # Para linting
-+pytest>=7.0.0 # Para ejecutar pruebas
+# CI/CD Tools
+flake8>=6.0.0 # Para linting
+pytest>=7.0.0 # Para ejecutar pruebas
 
