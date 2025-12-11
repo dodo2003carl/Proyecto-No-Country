@@ -1,0 +1,114 @@
+name: Python CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main  # Ejecutar en cada push a la rama principal
+  pull_request:
+    branches:
+      - main  # Ejecutar en cada Pull Request a la rama principal
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest  # Ejecutar en un entorno Linux
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4  # Descarga tu código
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Asegúrate de que esta versión sea compatible con tus dependencias
+          cache: 'pip' # Caché de dependencias para acelerar futuras ejecuciones
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # Instalar herramientas de desarrollo si no están en requirements.txt
+          pip install flake8 pytest pandas # pandas ya está, pero no hace daño asegurarse
+
+      - name: Check code style with Flake8
+        run: |
+          # Detener el build si hay errores de sintaxis o nombres indefinidos.
+          # Ajusta --max-line-length según tus preferencias.
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Continuar, tratando los errores como advertencias, pero mostrando las estadísticas.
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Run unit and integration tests
+        # Esta es una fase placeholder. Necesitas escribir tus propios tests.
+        run: |
+          echo "No se han configurado pruebas unitarias/integración. Crea tests/test_*.py para habilitar este paso."
+          # Descomenta la siguiente línea una vez que tengas tests configurados:
+          # pytest
+
+      - name: Smoke test main.py (Help command)
+        run: |
+          echo "Ejecutando 'python main.py --help' para verificar la invocación del script..."
+          python main.py --help
+
+  # Job opcional para ejecutar el análisis de tendencias como parte del CD
+  # Esto ejecutará el análisis y almacenará las tendencias en Supabase.
+  # ¡ADVERTENCIA!: Esto interactuará con tu base de datos de Supabase.
+  # Para un entorno CI/CD ideal, deberías considerar un entorno de Supabase de prueba separado.
+  analyze-and-deploy-trends:
+    needs: build-and-test # Este job solo se ejecuta si el anterior fue exitoso
+    if: github.ref == 'refs/heads/main' # Solo ejecutar en push a la rama 'main' (para evitar duplicar en PRs)
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} # Necesario si el reporte de IA se genera aquí
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Trend Analysis and store in Supabase
+        run: |
+          echo "Ejecutando análisis de tendencias y almacenando en Supabase..."
+          # Usamos la fecha actual para el análisis
+          python main.py --analyze-trends --analysis-date $(date +'%Y-%m-%d')
+          echo "Análisis de tendencias completado y almacenado. Verifica Supabase."
+
+  # Job opcional para desplegar la app Streamlit si usas Streamlit Cloud
+  # Si tu app de Streamlit está en un repositorio de GitHub, Streamlit Cloud
+  # a menudo se configura para desplegar automáticamente en cada push a 'main'.
+  # Este job sería más útil para un despliegue manual o en un VPS/servidor custom.
+  # deploy-streamlit:
+  #   needs: build-and-test
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Set up Python 3.10
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.10'
+  #         cache: 'pip'
+  #     - name: Install dependencies
+  #       run: |
+  #         python -m pip install --upgrade pip
+  #         pip install -r requirements.txt
+  #     - name: Check Streamlit app startup (Optional)
+  #       run: |
+  #         # Esto solo verifica que la app puede iniciar. No interactúa con la UI.
+  #         streamlit run dashboard.py --server.port 8888 --server.headless true &
+  #         sleep 10 # Dar tiempo a Streamlit para iniciar
+  #         curl http://localhost:8888 || true # curl para verificar, permitiendo fallo si Streamlit no responde
+  #         echo "Streamlit app se ha intentado iniciar. El despliegue a Streamlit Cloud es automático al vincular el repo."
