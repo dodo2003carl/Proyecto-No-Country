@@ -7,21 +7,82 @@ on:
   pull_request:
     branches:
       - main
-  schedule: # <--- ¡AÑADIR ESTO!
+  schedule: # Desencadenar en un horario programado
     # Ejecuta el scraper una vez al día, por ejemplo, a las 00:00 UTC
     # Usa crontab.guru para ajustar el horario (ej. '0 0 * * *' es medianoche UTC)
     - cron: '0 0 * * *'
 
 jobs:
   build-and-test:
-    # ... (job existente) ...
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest pandas # pandas ya está, pero no hace daño asegurarse
+
+      - name: Check code style with Flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Run unit and integration tests
+        run: |
+          echo "Ejecutando pruebas unitarias/integración si existen..."
+          pytest || true # Permite que el paso falle pero no detiene el workflow si no hay tests
+                         # Si tienes tests reales, quita '|| true' para que falle el job si los tests no pasan
+
+      - name: Smoke test main.py (Help command)
+        run: |
+          echo "Ejecutando 'python main.py --help' para verificar la invocación del script..."
+          python main.py --help
 
   analyze-and-deploy-trends:
-    # ... (job existente) ...
+    needs: build-and-test
+    # Solo ejecutar en push a la rama 'main' (para evitar duplicar en PRs o en el schedule)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
 
-  # NUEVO JOB: Ejecutar Scrapers
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Trend Analysis and store in Supabase
+        run: |
+          echo "Ejecutando análisis de tendencias y almacenando en Supabase..."
+          python main.py --analyze-trends --analysis-date $(date +'%Y-%m-%d')
+          echo "Análisis de tendencias completado y almacenado. Verifica Supabase."
+
+  # NUEVO JOB: Ejecutar Scrapers (se ejecuta solo en el schedule)
   run-scrapers-daily:
-    needs: build-and-test # Opcional: solo si quieres que el scraper dependa de que los tests pasen
+    needs: build-and-test
     # Solo ejecutar este job en la rama principal y solo cuando sea un evento 'schedule'
     if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -46,7 +107,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Execute Scrapers
         run: |
           echo "Iniciando ejecución de scrapers programada..."
