@@ -390,8 +390,8 @@ Para contribuir, sigue los pasos de un flujo de trabajo estándar de GitHub:
 
 ---
 
-## Enlace del proyecto en la Nube 
-[![Built with Streamlit](https://proyecto-no-country-suy3cnnrkvzkdja5rfhovq.streamlit.app/)](https://streamlit.io/)
+## Enlace del proyecto en la Nube
+[Ver aplicación desplegada en Streamlit](https://proyecto-no-country-suy3cnnrkvzkdja5rfhovq.streamlit.app/)
 ## 📄 Licencia ⚖️
 
 Este proyecto está distribuido bajo la **Licencia MIT**. Esto te otorga una gran libertad para usar, copiar, modificar, fusionar, publicar, distribuir, sublicenciar y/o vender copias del software.
